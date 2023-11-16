@@ -20,6 +20,55 @@ resource "azurerm_network_interface" "example" {
   }
 }
 
+
+resource "tls_private_key" "example" {
+  algorithm = "RSA"
+}
+
+data "azurerm_client_config" "current" {}
+
+
+resource "azurerm_key_vault" "example" {
+  name                        = var.key_vault_name
+  location                    = azurerm_resource_group.example.location
+  resource_group_name         = azurerm_resource_group.example.name
+  enabled_for_disk_encryption = true
+  tenant_id                   = data.azurerm_client_config.current.tenant_id
+
+  sku_name = "standard"
+
+  access_policy {
+    tenant_id = data.azurerm_client_config.current.tenant_id
+    object_id = data.azurerm_client_config.current.object_id
+
+    key_permissions = [
+      "Get",
+    ]
+
+    secret_permissions = [
+      "Get",
+      "Set",
+      "List",
+      "Delete",
+    ]
+
+    storage_permissions = [
+      "Get",
+    ]
+  }
+}
+
+resource "azurerm_key_vault_secret" "example" {
+  name         = var.key_vault_secret_name
+  value        = tls_private_key.example.private_key_pem
+  key_vault_id = azurerm_key_vault.example.id
+}
+
+data "azurerm_image" "search" {
+  name                = var.image_name
+  resource_group_name = var.rg-name
+}
+
 resource "azurerm_virtual_machine" "example" {
   # for_each              = each.servers
   name                  = var.vm-name
@@ -34,32 +83,35 @@ resource "azurerm_virtual_machine" "example" {
   # }
 
   storage_image_reference {
-    publisher = "OpenLogic"
-    offer     = "CentOS"
-    sku       = "7.7"
-    version   = "latest"
+    id = "${data.azurerm_image.search.id}"
   }
 
+  # storage_image_reference {
+  #   publisher = "OpenLogic"
+  #   offer     = "CentOS"
+  #   sku       = "7.7"
+  #   version   = "latest"
+  # }
+
   storage_os_disk {
-    name              = "testingdisk"
+    name              = "testingdisk-1"
     caching           = "ReadWrite"
     create_option     = "FromImage"
     managed_disk_type = "Standard_LRS"
     disk_size_gb      = 30
   }
 
-  os_profile {
-    computer_name  = "vasu"
-    admin_username = "vasuperni"
-    admin_password = "Vasuperni@1997"
+ os_profile {
+    computer_name  = var.vm-name
+    admin_username = "adminuser" 
   }
 
   os_profile_linux_config {
-    disable_password_authentication = false
-    # ssh_keys {
-    #   path     = "~/vpc/practice/"
-    #   key_data = file("~/vpc/practice/.ssh/terraform-azure.pub")  # Path to your public SSH key
-    # }
+    disable_password_authentication = true
+    ssh_keys {
+      path     = "/home/adminuser/.ssh/authorized_keys"
+      key_data = tls_private_key.example.public_key_openssh
+    }
   }
 
 

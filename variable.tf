@@ -88,6 +88,19 @@ variable "nsg_tags" {
   default = {}
 }
 
+variable "key_vault_name"{
+   type = string
+   default = "ashok-key-vault"
+}
+variable "key_vault_secret_name"{
+   type = string
+   default = "ashok-secret"
+}
+
+variable "image_name" {
+  type = string
+}
+
 
 # variable "storage-account-name"{
 #     type = string
